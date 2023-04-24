@@ -25,29 +25,21 @@ args = parser.parse_args()
 
 source = args.filename
 
-flist = None
 found = False
 
-if args.list:
-	flist = args.list
+flist = args.list if args.list else None
 
 def existf(filename):
 	try:
 		if os.path.isdir(filename):
 			return 2
-		if os.stat(filename).st_size > 0:
-			return 0
-		else:
-			return 1
+		return 0 if os.stat(filename).st_size > 0 else 1
 	except OSError:
 		return 2
 
 bytenum = 4
 
-py2 = None
-if int(''.join(str(i) for i in sys.version_info[0:2])) < 30:
-	py2 = 1
- 
+py2 = 1 if int(''.join(str(i) for i in sys.version_info[:2])) < 30 else None
 with open(source, 'rb') as f:
 	while True:
 		i = f.read(bytenum)
@@ -55,44 +47,43 @@ with open(source, 'rb') as f:
 			break
 		if i != b'\x55\xAA\x5A\xA5':
 			continue
-		else:
-			headersize = f.read(bytenum)
-			headersize = list(struct.unpack('<L', headersize))[0]
-			f.seek(16, 1)
-			filesize = f.read(bytenum)
-			filesize = list(struct.unpack('<L', filesize))[0]
-			f.seek(32, 1)
-			filename = f.read(16)
-			try:
-				filename = str(filename.decode())
-				filename = ''.join(f for f in filename if f in string.printable).lower()
-			except:
-				filename = ''
+		headersize = f.read(bytenum)
+		headersize = list(struct.unpack('<L', headersize))[0]
+		f.seek(16, 1)
+		filesize = f.read(bytenum)
+		filesize = list(struct.unpack('<L', filesize))[0]
+		f.seek(32, 1)
+		filename = f.read(16)
+		try:
+			filename = str(filename.decode())
+			filename = ''.join(f for f in filename if f in string.printable).lower()
+		except:
+			filename = ''
 
-			f.seek(22, 1)
-			crcdata = f.read(headersize - 98)
-			
-			getimg = None
-			if (flist and filename in flist) or (not flist):
-				getimg = 1
-				found = True
-			
-			if getimg:
-				imgdata = f.read(filesize)
-				try:
-					print('Extracting '+filename+'.img ...')
-					with open(filename+'.img', 'wb') as o:
-						o.write(imgdata)
-				except:
-					print('ERROR: Failed to create '+filename+'.img\n')
-					sys.exit(1)
-				
-			else:
-				f.seek(filesize, 1)
-			
-			xbytes = bytenum - f.tell() % bytenum
-			if xbytes < bytenum:
-				f.seek(xbytes, 1)
+		f.seek(22, 1)
+		crcdata = f.read(headersize - 98)
+
+		getimg = None
+		if (flist and filename in flist) or (not flist):
+			getimg = 1
+			found = True
+
+		if getimg:
+			imgdata = f.read(filesize)
+			try:
+				print(f'Extracting {filename}.img ...')
+				with open(f'{filename}.img', 'wb') as o:
+					o.write(imgdata)
+			except:
+				print(f'ERROR: Failed to create {filename}' + '.img\n')
+				sys.exit(1)
+
+		else:
+			f.seek(filesize, 1)
+
+		xbytes = bytenum - f.tell() % bytenum
+		if xbytes < bytenum:
+			f.seek(xbytes, 1)
 
 if not found:
 	sys.exit(1)
